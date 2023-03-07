@@ -3,7 +3,8 @@
 
 from sentencepiece import SentencePieceProcessor
 from logging import getLogger
-from typing import List
+from typing import Dict, List, Union
+import torch
 import os
 
 
@@ -27,6 +28,16 @@ class Tokenizer:
         )
         assert self.sp_model.vocab_size() == self.sp_model.get_piece_size()
 
+    def __call__(self, *args, **kwargs) -> Dict[str, torch.IntTensor]:
+        return self.tokenize(*args, **kwargs)
+
+    def tokenize(self, s: str, truncation: bool = False, max_length: int = -1) -> Dict[str, torch.IntTensor]:
+        enc = self.encode(s, bos=True, eos=False)
+        if truncation:
+            end = min(max_length, len(enc))
+            enc = enc[:end]
+        return { "input_ids": torch.IntTensor(enc) }
+
     def encode(self, s: str, bos: bool, eos: bool) -> List[int]:
         assert type(s) is str
         t = self.sp_model.encode(s)
@@ -36,5 +47,7 @@ class Tokenizer:
             t = t + [self.eos_id]
         return t
 
-    def decode(self, t: List[int]) -> str:
+    def decode(self, t: Union[List[int], torch.IntTensor]) -> str:
+        if isinstance(t, torch.IntTensor):
+            t = t.tolist()
         return self.sp_model.decode(t)
