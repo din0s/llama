@@ -94,35 +94,31 @@ def main(
     repetition_penalty_range: int = 1024,
     repetition_penalty_slope: float = 0,
     repetition_penalty: float = 1.15,
-    max_seq_len: int = 512,
-    max_batch_size: int = 32,
+    max_seq_len: int = 2048,
+    max_gen_len: int = 256,
+    max_batch_size: int = 1,
     use_int8: bool = True,
 ):
     generator = load(ckpt_dir, tokenizer_path, max_seq_len, max_batch_size, use_int8)
 
-    prompts = [
-        # For these prompts, the expected answer is the natural continuation of the prompt
-        """Welcome.
-The following conversation took place at Harvard University.
-Former Treasurer Secretary Larry Summers invited Ray Dalio, the founder, chairman and
-co-CIO of Bridgewater Associates, the world's largest hedge fund, to discuss Dalio's unique
-views on economics.
+    while True:
+        f_in = input("Enter a file name: ")
+        with open(f_in, "r") as f:
+            prompts = [f.read().rstrip()]
 
-Dalio:""",
-    ]
-    results = generator.generate(
-        prompts,
-        max_gen_len=1024,
-        temperature=temperature,
-        top_p=top_p,
-        repetition_penalty_range=repetition_penalty_range,
-        repetition_penalty_slope=repetition_penalty_slope,
-        repetition_penalty=repetition_penalty,
-    )
+        results = generator.generate(
+            prompts,
+            max_gen_len=max_gen_len,
+            temperature=temperature,
+            top_p=top_p,
+            repetition_penalty_range=repetition_penalty_range,
+            repetition_penalty_slope=repetition_penalty_slope,
+            repetition_penalty=repetition_penalty,
+        )
 
-    for result in results:
-        print(result)
-        print("\n==================================\n")
+        for result in results:
+            print(result)
+            print()
 
 
 if __name__ == "__main__":
