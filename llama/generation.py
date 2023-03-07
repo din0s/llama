@@ -21,8 +21,6 @@ class LLaMA:
         temperature: float = 0.7,
         top_k: int = 40,
         top_p: float = 0.0, #0.95,
-        repetition_penalty_range: int = 1024,
-        repetition_penalty_slope: float = 0.7,
         repetition_penalty: float = (1.0 / 0.85),
         token_callback=None,
     ) -> List[str]:
@@ -47,23 +45,22 @@ class LLaMA:
         for cur_pos in range(start_pos, total_len):
             logits = self.model.forward(tokens[:, prev_pos:cur_pos], prev_pos)
 
+            # repetition penalty from CTRL paper (https://arxiv.org/abs/1909.05858)
+            if repetition_penalty != 1.0:
+                logits_new = logits.clone()
+                batch_size = len(tokens)
+                for i in range(batch_size):
+                    for token in set(tokens[i].tolist()):
+                        # if score < 0 then repetition penalty has to multiplied to reduce the previous token probability
+                        if logits[i, token] < 0:
+                            logits_new[i, token] = logits[i, token] * repetition_penalty
+                        else:
+                            logits_new[i, token] = logits[i, token] / repetition_penalty
+                logits = logits_new
+
             if temperature > 0:
-                next_token_scores = logits
-                next_token_scores = apply_temperature(next_token_scores, temperature)
-                next_token_scores = apply_top_pk(next_token_scores, top_p, top_k)
-                next_token_scores = apply_advanced_repetition_penalty(
-                    tokens[:, :cur_pos],
-                    next_token_scores,
-                    repetition_penalty_range,
-                    repetition_penalty_slope,
-                    repetition_penalty,
-                )
-                next_token_scores = torch.nn.functional.softmax(
-                    next_token_scores, dim=-1
-                )
-                next_token = torch.multinomial(
-                    next_token_scores, num_samples=1
-                ).squeeze(1)
+                probs = torch.softmax(logits / temperature, dim=-1)
+                next_token = sample(probs, top_p=top_p, top_k=top_k)
             else:
                 next_token = torch.argmax(logits, dim=-1)
             next_token = next_token.reshape(-1)
@@ -100,63 +97,17 @@ class LLaMA:
             decoded.append(self.tokenizer.decode(t))
         return decoded
 
-
-def apply_temperature(scores, tempt):
-    scores = scores / tempt
-    return scores
-
-
-def apply_top_pk(scores, top_p, top_k, filter_value=-float("Inf"), min_tokens_to_keep=1):
-    if top_p <= 0 and top_k <= 0:
-        return scores
-
+def sample(probs, top_p=0.0, top_k=40):
     if top_k > 0:
-        sorted_logits, sorted_indices = torch.topk(scores, top_k)
-    else:  # top_p > 0
-        sorted_logits, sorted_indices = torch.sort(scores, descending=False)
+        probs_sort, probs_idx = torch.topk(probs, top_k)
+    else:
+        probs_sort, probs_idx = torch.sort(probs, dim=-1, descending=True)
+    if top_p > 0.0:
+        probs_sum = torch.cumsum(probs_sort, dim=-1)
+        mask = probs_sum - probs_sort > top_p
+        probs_sort[mask] = 0.0
+        probs_sort.div_(probs_sort.sum(dim=-1, keepdim=True))
+    next_token = torch.multinomial(probs_sort, num_samples=1)
+    next_token = torch.gather(probs_idx, -1, next_token)
+    return next_token
 
-    cumulative_probs = sorted_logits.softmax(dim=-1).cumsum(dim=-1)
-
-    # Remove tokens with cumulative top_p above the threshold (token with 0 are kept)
-    sorted_indices_to_remove = cumulative_probs <= (1 - top_p)
-    if min_tokens_to_keep > 1:
-        # Keep at least min_tokens_to_keep
-        sorted_indices_to_remove[..., -min_tokens_to_keep:] = 0
-
-    # scatter sorted tensors to original indexing
-    indices_to_remove = sorted_indices_to_remove.scatter(
-        1, sorted_indices, sorted_indices_to_remove
-    )
-    scores = scores.masked_fill(indices_to_remove, filter_value)
-    return scores
-
-
-def apply_advanced_repetition_penalty(
-    input_ids, scores, penalty_range, penalty_slope, penalty
-):
-    penalty_range = int(penalty_range)
-    clipped_penalty_range = min(input_ids.shape[-1], penalty_range)
-
-    if penalty != 1.0:
-        if penalty_range > 0:
-            if clipped_penalty_range < input_ids.shape[1]:
-                input_ids = input_ids[..., -clipped_penalty_range:]
-
-            if penalty_slope != 0:
-                _penalty = (
-                    torch.arange(
-                        penalty_range, dtype=scores.dtype, device=scores.device
-                    )
-                    / (penalty_range - 1)
-                ) * 2.0 - 1
-                _penalty = (penalty_slope * _penalty) / (
-                    1 + torch.abs(_penalty) * (penalty_slope - 1)
-                )
-                _penalty = 1 + ((_penalty + 1) / 2).unsqueeze(0) * (penalty - 1)
-                penalty = _penalty[..., -clipped_penalty_range:]
-
-        score = torch.gather(scores, 1, input_ids)
-        score = torch.where(score <= 0, score * penalty, score / penalty)
-        scores.scatter_(1, input_ids, score)
-
-    return scores
