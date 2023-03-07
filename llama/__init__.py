@@ -4,3 +4,4 @@
 from .generation import LLaMA
 from .model import ModelArgs, Transformer, default_quantize
 from .tokenizer import Tokenizer
+from .utils import load
