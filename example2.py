@@ -60,7 +60,7 @@ def main(
     )))
     print("~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~")
 
-    generator = load(
+    generator, _ = load(
         ckpt_dir,
         tokenizer_path,
         #local_rank,

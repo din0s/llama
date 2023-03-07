@@ -2,6 +2,7 @@ import json
 import os
 import time
 from pathlib import Path
+from typing import Tuple
 
 import torch
 
@@ -19,7 +20,7 @@ def load(
     max_seq_len: int,
     max_batch_size: int,
     quantize: bool,
-) -> LLaMA:
+) -> Tuple[LLaMA, Tokenizer]:
     start_time = time.time()
     checkpoints = sorted(Path(ckpt_dir).glob("*.pth"))
 
@@ -83,4 +84,4 @@ def load(
     print(
         f"Loaded in {time.time() - start_time:.2f} seconds with {torch.cuda.max_memory_allocated() / 1024 ** 3:.2f} GiB"
     )
-    return generator
+    return generator, tokenizer
