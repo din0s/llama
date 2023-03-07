@@ -23,10 +23,13 @@ class LLaMA:
         top_p: float = 0.0, #0.95,
         repetition_penalty: float = (1.0 / 0.85),
         token_callback=None,
+        only_new=False,
     ) -> List[str]:
         bsz = len(prompts)
         params = self.model.params
         assert bsz <= params.max_batch_size, (bsz, params.max_batch_size)
+        assert not (bsz > 1 and token_callback is not None), \
+                "Cannot use token_callback when batched"
 
         prompt_tokens = [self.tokenizer.encode(x, bos=True, eos=False) for x in prompts]
 
@@ -68,7 +71,7 @@ class LLaMA:
             next_token = torch.where(
                 input_text_mask[:, cur_pos], tokens[:, cur_pos], next_token
             )
-            if next_token == self.tokenizer.eos_id:
+            if bsz == 1 and next_token == self.tokenizer.eos_id:
                 break
             tokens[:, cur_pos] = next_token
             if token_callback is not None:
@@ -83,17 +86,18 @@ class LLaMA:
                 token_callback(next_word)
             prev_pos = cur_pos
 
-        return self.decode(tokens)
-
-    def decode(self, tokens):
         decoded = []
         for i, t in enumerate(tokens.tolist()):
-            t = [token for token in t if token != -1]
-            # # cut to max gen len
-            # t = t[: len(prompt_tokens[i]) + max_gen_len]
-            while self.tokenizer.eos_id in t:
-                pos = t.index(self.tokenizer.eos_id)
-                t[pos:pos+1] = self.tokenizer.encode('\n<|endoftext|>\n', bos=False, eos=False)
+            prompt_len = len(prompt_tokens[i])
+            start = prompt_len if only_new else 0
+            end = prompt_len + max_gen_len
+            if self.tokenizer.eos_id in t:
+                end = t.index(self.tokenizer.eos_id)
+            t = t[start : end]
+            #t = [token for token in t if token != -1]
+            #while self.tokenizer.eos_id in t:
+            #    pos = t.index(self.tokenizer.eos_id)
+            #    t[pos:pos+1] = self.tokenizer.encode('\n<|endoftext|>\n', bos=False, eos=False)
             decoded.append(self.tokenizer.decode(t))
         return decoded
 
