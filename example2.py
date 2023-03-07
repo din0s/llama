@@ -113,10 +113,11 @@ def main(
     repetition_penalty: float = (1 / 0.85),
     max_seq_len: int = 2048,
     max_gen_len: int = 256,
-    max_batch_size: int = 1,
+    max_batch_size: int = 8,
     seed: int = 1,
-    count: int = 3,
-    use_int8: bool = True,
+    count: int = 1,
+    use_int8: bool = False,
+    only_new: bool = True,
 ):
     #local_rank, world_size = setup_model_parallel(seed)
     #if local_rank > 0:
@@ -148,31 +149,35 @@ def main(
         use_int8,
     )
 
-    def callback(text):
-        print(text, end='', flush=True)
-
+    prompts = []
     while True:
-        print()
-        f_in = input("Enter a file name: ")
+        f_in = input("Enter a file name (or ENTER to stop): ").strip()
+        if f_in == "":
+            break
         with open(f_in, "r") as f:
-            prompts = [f.read().rstrip()]
+            prompts += [f.read().rstrip()]
 
-        i = 0
-        while i < count or count <= 0:
-            i += 1
-            for prompt in prompts:
-                print(f"\n============== sample {i} =================\n")
-                text, = generator.generate(
-                    [prompt],
-                    max_gen_len=max_gen_len,
-                    temperature=temperature,
-                    top_p=top_p,
-                    top_k=top_k,
-                    #repetition_penalty_range=repetition_penalty_range,
-                    #repetition_penalty_slope=repetition_penalty_slope,
-                    repetition_penalty=repetition_penalty,
-                    token_callback=callback,
-                )
+    i = 0
+    while i < count or count <= 0:
+        i += 1
+        for idx in range(0, len(prompts), max_batch_size):
+            print(f"\n============== sample {i} =================\n")
+            texts = generator.generate(
+                prompts[idx:idx+max_batch_size],
+                max_gen_len=max_gen_len,
+                temperature=temperature,
+                top_p=top_p,
+                top_k=top_k,
+                #repetition_penalty_range=repetition_penalty_range,
+                #repetition_penalty_slope=repetition_penalty_slope,
+                repetition_penalty=repetition_penalty,
+                only_new=only_new,
+            )
+
+            for pidx, text in enumerate(texts):
+                print(f"-------------- output {pidx+1} -----------------")
+                print(text.split("\n")[0].strip())
+                print()
 
 
 if __name__ == "__main__":
