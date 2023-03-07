@@ -71,11 +71,11 @@ def main(
     top_p: float = 0.0,
     top_k: int = 40,
     repetition_penalty: float = (1 / 0.85),
-    max_seq_len: int = 512,
+    max_seq_len: int = 2048,
     max_gen_len: int = 256,
-    max_batch_size: int = 32,
+    max_batch_size: int = 1,
     seed: int = 1,
-    count: int = 5,
+    count: int = 3,
 ):
     local_rank, world_size = setup_model_parallel(seed)
     if local_rank > 0:
@@ -99,40 +99,9 @@ def main(
         ckpt_dir, tokenizer_path, local_rank, world_size, max_seq_len, max_batch_size
     )
 
-    prompts = [
-        # For these prompts, the expected answer is the natural continuation of the prompt
-
-        # "I believe the meaning of life is",
-        # "Simply put, the theory of relativity states that",
-        # "Building a website can be done in a few simple steps:\n1.",
-        # "Here's how to build it in a few simple steps:\n1.",
-
-        "This is Captain Jean-Luc Picard",
-        "I am Lieutenant Commander Data",
-        "The Klingons are attacking",
-
-#         # Few shot prompts: https://huggingface.co/blog/few-shot-learning-gpt-neo-and-inference-api
-#         """Tweet: "I hate it when my phone battery dies."
-# Sentiment: Negative
-# ###
-# Tweet: "My day has been 👍"
-# Sentiment: Positive
-# ###
-# Tweet: "This is the link to the article"
-# Sentiment: Neutral
-# ###
-# Tweet: "This new music video was incredibile"
-# Sentiment:""",
-#         """Translate English to French:
-#
-# sea otter => loutre de mer
-#
-# peppermint => menthe poivrée
-#
-# plush girafe => girafe peluche
-#
-# cheese =>""",
-    ]
+    f_in = input("Enter a file name: ")
+    with open(f_in, "r") as f:
+        prompts = [f.read().rstrip()]
     i = 0
     while i < count or count <= 0:
         i += 1
