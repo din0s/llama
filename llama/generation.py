@@ -18,11 +18,13 @@ class LLaMA:
         self,
         prompts: List[str],
         max_gen_len: int,
-        temperature: float = 0.8,
-        top_p: float = 0.95,
+        temperature: float = 0.7,
+        top_k: int = 40,
+        top_p: float = 0.0, #0.95,
         repetition_penalty_range: int = 1024,
         repetition_penalty_slope: float = 0.7,
-        repetition_penalty: float = 1.15,
+        repetition_penalty: float = (1.0 / 0.85),
+        token_callback=None,
     ) -> List[str]:
         bsz = len(prompts)
         params = self.model.params
@@ -41,11 +43,14 @@ class LLaMA:
         input_text_mask = tokens != self.tokenizer.pad_id
         start_pos = min_prompt_size
         prev_pos = 0
+        prev_text = ''
         for cur_pos in range(start_pos, total_len):
             logits = self.model.forward(tokens[:, prev_pos:cur_pos], prev_pos)
+
             if temperature > 0:
-                next_token_scores = apply_top_p(logits, top_p)
+                next_token_scores = logits
                 next_token_scores = apply_temperature(next_token_scores, temperature)
+                next_token_scores = apply_top_pk(next_token_scores, top_p, top_k)
                 next_token_scores = apply_advanced_repetition_penalty(
                     tokens[:, :cur_pos],
                     next_token_scores,
@@ -66,18 +71,32 @@ class LLaMA:
             next_token = torch.where(
                 input_text_mask[:, cur_pos], tokens[:, cur_pos], next_token
             )
+            if next_token == self.tokenizer.eos_id:
+                break
             tokens[:, cur_pos] = next_token
+            if token_callback is not None:
+                assert len(prompts) == 1
+                text, = self.decode(tokens)
+                #assert text.startswith(prev_text)
+                if not text.startswith(prev_text):
+                    # Some kind of bogus token generation; abort early.
+                    break
+                next_word = text[len(prev_text):]
+                prev_text = text
+                token_callback(next_word)
             prev_pos = cur_pos
 
+        return self.decode(tokens)
+
+    def decode(self, tokens):
         decoded = []
         for i, t in enumerate(tokens.tolist()):
-            # cut to max gen len
-            t = t[: len(prompt_tokens[i]) + max_gen_len]
-            # cut to eos tok if any
-            try:
-                t = t[: t.index(self.tokenizer.eos_id)]
-            except ValueError:
-                pass
+            t = [token for token in t if token != -1]
+            # # cut to max gen len
+            # t = t[: len(prompt_tokens[i]) + max_gen_len]
+            while self.tokenizer.eos_id in t:
+                pos = t.index(self.tokenizer.eos_id)
+                t[pos:pos+1] = self.tokenizer.encode('\n<|endoftext|>\n', bos=False, eos=False)
             decoded.append(self.tokenizer.decode(t))
         return decoded
 
@@ -87,8 +106,15 @@ def apply_temperature(scores, tempt):
     return scores
 
 
-def apply_top_p(scores, top_p, filter_value=-float("Inf"), min_tokens_to_keep=1):
-    sorted_logits, sorted_indices = torch.sort(scores, descending=False)
+def apply_top_pk(scores, top_p, top_k, filter_value=-float("Inf"), min_tokens_to_keep=1):
+    if top_p <= 0 and top_k <= 0:
+        return scores
+
+    if top_k > 0:
+        sorted_logits, sorted_indices = torch.topk(scores, top_k)
+    else:  # top_p > 0
+        sorted_logits, sorted_indices = torch.sort(scores, descending=False)
+
     cumulative_probs = sorted_logits.softmax(dim=-1).cumsum(dim=-1)
 
     # Remove tokens with cumulative top_p above the threshold (token with 0 are kept)
