@@ -5,8 +5,8 @@ from typing import List
 
 import torch
 
-from llama.tokenizer import Tokenizer
 from llama.model import Transformer
+from llama.tokenizer import Tokenizer
 
 
 class LLaMA:
@@ -76,7 +76,7 @@ class LLaMA:
             tokens[:, cur_pos] = next_token
             if token_callback is not None:
                 assert len(prompts) == 1
-                text, = self.decode(tokens)
+                text, = self.decode(tokens, prompt_tokens, max_gen_len, only_new)
                 #assert text.startswith(prev_text)
                 if not text.startswith(prev_text):
                     # Some kind of bogus token generation; abort early.
@@ -86,6 +86,9 @@ class LLaMA:
                 token_callback(next_word)
             prev_pos = cur_pos
 
+        return self.decode(tokens, prompt_tokens, max_gen_len, only_new)
+
+    def decode(self, tokens, prompt_tokens, max_gen_len, only_new=False):
         decoded = []
         for i, t in enumerate(tokens.tolist()):
             prompt_len = len(prompt_tokens[i])
@@ -94,7 +97,7 @@ class LLaMA:
             if self.tokenizer.eos_id in t:
                 end = t.index(self.tokenizer.eos_id)
             t = t[start : end]
-            #t = [token for token in t if token != -1]
+            t = [token for token in t if token != -1]
             #while self.tokenizer.eos_id in t:
             #    pos = t.index(self.tokenizer.eos_id)
             #    t[pos:pos+1] = self.tokenizer.encode('\n<|endoftext|>\n', bos=False, eos=False)
