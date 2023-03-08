@@ -75,8 +75,12 @@ def main(
         print(text, end='', flush=True)
 
     while True:
-        print()
-        prompt = input("Input: ")
+        print("\n")
+        prompts = [input("Input (double newline to stop): ")]
+        while prompts[-1].strip() != "":
+            prompts += [input()]
+
+        prompt = "\n".join(prompts).strip()
 
         i = 0
         while i < samples or samples <= 0:
