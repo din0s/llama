@@ -4,7 +4,7 @@
 
 This is a fork of the LLaMA code that runs LLaMA-13B comfortably within 24 GiB of RAM.
 It relies almost entirely on the `bitsandbytes` and `LLM.int8()` work of Tim Dettmers.
-I've tested it on an RTX 4090, and it [reportedly works on the 3090](https://github.com/facebookresearch/llama/issues/79#issuecomment-1454687232). It might also theoretically allow us to run LLaMA-65B on an 80GB A100, but I haven't tried this. (edit from @[din0s](https://github.com/din0s): Also tested with 40GB A100, fits 7B without int8, 13B with int8.)
+I've tested it on an RTX 4090, and it [reportedly works on the 3090](https://github.com/facebookresearch/llama/issues/79#issuecomment-1454687232). It might also theoretically allow us to run LLaMA-65B on an 80GB A100, but I haven't tried this. (edit from @[din0s](https://github.com/din0s): Also tested with 40GB A100, fits 7B without int8, 13B & 30B with int8.)
 
 The code contains the following changes (thanks to [shawwn](https://github.com/shawwn/llama) and [tloen](https://github.com/tloen/llama-int8)!):
 
