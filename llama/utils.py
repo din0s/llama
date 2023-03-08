@@ -1,12 +1,10 @@
 import json
-import os
 import time
 from pathlib import Path
 from typing import Tuple
 
 import torch
 
-os.environ["BITSANDBYTES_NOWELCOME"] = "1"
 from llama.generation import LLaMA
 from llama.model import ModelArgs, Transformer, default_quantize
 from llama.tokenizer import Tokenizer

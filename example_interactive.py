@@ -2,9 +2,11 @@
 # This software may be used and distributed according to the terms of the GNU General Public License version 3.
 
 import json
+import os
 
 import fire
 
+os.environ["BITSANDBYTES_NOWELCOME"] = "1"
 from llama import load
 
 #from fairscale.nn.model_parallel.initialize import initialize_model_parallel
