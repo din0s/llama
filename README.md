@@ -1,17 +1,19 @@
-# LLaMA: INT8 edition
+# LLaMA: Streaming + INT8 edition
 
-This is a fork of the LLaMA code that runs LLaMA-13B
-comfortably within 24 GiB of RAM.
+> Note: Most of this README comes from [llama-int8](https://github.com/tloen/llama-int8) and the [original LLaMA repo](https://github.com/facebookresearch/llama).
+
+This is a fork of the LLaMA code that runs LLaMA-13B comfortably within 24 GiB of RAM.
 It relies almost entirely on the `bitsandbytes` and `LLM.int8()` work of Tim Dettmers.
-I've tested it on an RTX 4090, and it [reportedly works on the 3090](https://github.com/facebookresearch/llama/issues/79#issuecomment-1454687232). It might also theoretically allow us to run LLaMA-65B on an 80GB A100, but I haven't tried this.
+I've tested it on an RTX 4090, and it [reportedly works on the 3090](https://github.com/facebookresearch/llama/issues/79#issuecomment-1454687232). It might also theoretically allow us to run LLaMA-65B on an 80GB A100, but I haven't tried this. (edit from @[din0s](https://github.com/din0s): Also tested with 1xA100, fits 7B without int8, 13B with int8)
 
-The code contains the following changes:
+The code contains the following changes (thanks to [shawwn](https://github.com/shawwn/llama) and [tloen](https://github.com/tloen/llama-int8)!):
 
 - Removes parallelism constructs
 - Quantizes weights on the host machine
 - Loads weights incrementally to avoid severe memory problems
 - Added dependencies on `bitsandbytes`, `tqdm`.
 - Repetition penalty settings (`--repetition_penalty`, default 1.15)
+- Adds option to stream token-by-token when `batch_size` is 1.
 
 On my Ubuntu machine with 64 GB of RAM and an RTX 4090, it takes about 25 seconds to load in the floats and quantize the model.
 Users should be ready to expand their swapfiles if they don't have enough RAM.
@@ -22,7 +24,7 @@ If you have interesting ideas for further development, I can be reached at https
 
 ## Usage:
 
-`python example.py --ckpt_dir [TARGET_DIR]/13B --tokenizer_path [TARGET_DIR]/tokenizer.model --max_batch_size=1`
+`python example.py --ckpt_dir $TARGET_DIR/13B --tokenizer_path $TARGET_DIR/tokenizer.model`
 
 ---
 
