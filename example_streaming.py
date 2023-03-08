@@ -36,8 +36,8 @@ def main(
     max_gen_len: int = 256,
     max_batch_size: int = 1,
     seed: int = 1,
-    count: int = 3,
-    use_int8: bool = True,
+    samples: int = 1,
+    use_int8: bool = False,
 ):
     #local_rank, world_size = setup_model_parallel(seed)
     #if local_rank > 0:
@@ -76,24 +76,23 @@ def main(
         print()
         f_in = input("Enter a file name: ")
         with open(f_in, "r") as f:
-            prompts = [f.read().rstrip()]
+            prompt = f.read().rstrip()
 
         i = 0
-        while i < count or count <= 0:
+        while i < samples or samples <= 0:
             i += 1
-            for prompt in prompts:
-                print(f"\n============== sample {i} =================\n")
-                generator.generate(
-                    [prompt],
-                    max_gen_len=max_gen_len,
-                    temperature=temperature,
-                    top_p=top_p,
-                    top_k=top_k,
-                    #repetition_penalty_range=repetition_penalty_range,
-                    #repetition_penalty_slope=repetition_penalty_slope,
-                    repetition_penalty=repetition_penalty,
-                    token_callback=callback,
-                )
+            print(f"\n============== sample {i} =================\n")
+            generator.generate(
+                [prompt],
+                max_gen_len=max_gen_len,
+                temperature=temperature,
+                top_p=top_p,
+                top_k=top_k,
+                #repetition_penalty_range=repetition_penalty_range,
+                #repetition_penalty_slope=repetition_penalty_slope,
+                repetition_penalty=repetition_penalty,
+                token_callback=callback,
+            )
 
 
 if __name__ == "__main__":

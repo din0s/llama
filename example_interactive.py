@@ -34,11 +34,10 @@ def main(
     repetition_penalty: float = (1 / 0.85),
     max_seq_len: int = 2048,
     max_gen_len: int = 256,
-    max_batch_size: int = 8,
+    max_batch_size: int = 1,
     seed: int = 1,
-    count: int = 1,
+    samples: int = 1,
     use_int8: bool = False,
-    only_new: bool = True,
 ):
     #local_rank, world_size = setup_model_parallel(seed)
     #if local_rank > 0:
@@ -70,21 +69,19 @@ def main(
         use_int8,
     )
 
-    prompts = []
-    while True:
-        f_in = input("Enter a file name (or ENTER to stop): ").strip()
-        if f_in == "":
-            break
-        with open(f_in, "r") as f:
-            prompts += [f.read().rstrip()]
+    def callback(text):
+        print(text, end='', flush=True)
 
-    i = 0
-    while i < count or count <= 0:
-        i += 1
-        for idx in range(0, len(prompts), max_batch_size):
-            print(f"\n============== sample {i} =================\n")
-            texts = generator.generate(
-                prompts[idx:idx+max_batch_size],
+    while True:
+        print()
+        prompt = input("Input: ")
+
+        i = 0
+        while i < samples or samples <= 0:
+            i += 1
+            print(f"\n============== output {i} =================\n")
+            generator.generate(
+                [prompt],
                 max_gen_len=max_gen_len,
                 temperature=temperature,
                 top_p=top_p,
@@ -92,13 +89,8 @@ def main(
                 #repetition_penalty_range=repetition_penalty_range,
                 #repetition_penalty_slope=repetition_penalty_slope,
                 repetition_penalty=repetition_penalty,
-                only_new=only_new,
+                token_callback=callback,
             )
-
-            for pidx, text in enumerate(texts):
-                print(f"-------------- output {pidx+1} -----------------")
-                print(text.split("\n")[0].strip())
-                print()
 
 
 if __name__ == "__main__":
