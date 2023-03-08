@@ -24,7 +24,7 @@ If you have interesting ideas for further development, I can be reached at https
 
 ## Usage:
 
-`python example.py --ckpt_dir $TARGET_DIR/13B --tokenizer_path $TARGET_DIR/tokenizer.model`
+`python example_streaming.py --ckpt_dir $TARGET_DIR/13B --tokenizer_path $TARGET_DIR/tokenizer.model --use_int8`
 
 ---
 
